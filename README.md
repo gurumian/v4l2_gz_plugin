@@ -88,6 +88,31 @@ mpv av://v4l2:/dev/video10
 gst-launch-1.0 v4l2src device=/dev/video10 ! autovideosink
 ```
 
+## Reusing the device after Gazebo exits
+
+With **`exclusive_caps=1`** (recommended for some consumers like Chrome), the v4l2loopback driver has a **known limitation**: after the producer (this plugin) closes the device, the next run fails with "does not support VIDEO_OUTPUT" until the device is reset. This is a driver-level behavior, not something the plugin can fix with cleanup or signal handlers.
+
+**Options:**
+
+1. **Reload the module** (always works):
+   ```bash
+   sudo modprobe -r v4l2loopback
+   sudo modprobe v4l2loopback video_nr=10 card_label="GzCamera" exclusive_caps=1
+   ```
+
+2. **Load without `exclusive_caps`** so the device can be reopened without reload:
+   ```bash
+   sudo modprobe v4l2loopback video_nr=10 card_label="GzCamera"
+   ```
+   Some applications (e.g. Chrome) may behave differently when the device exposes both capture and output capabilities.
+
+3. **Reset with `v4l2loopback-ctl`** (if available, no full modprobe reload):
+   ```bash
+   sudo v4l2loopback-ctl delete /dev/video10
+   sudo v4l2loopback-ctl add /dev/video10
+   ```
+   Requires `v4l2loopback-utils` and a driver build that supports the control interface.
+
 ## Notes
 
 - **Pixel Format**: The plugin writes raw RGB24 data. Ensure the consumer application expects RGB.
