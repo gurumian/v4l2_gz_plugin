@@ -60,6 +60,7 @@ Add the plugin to your robot's URDF/SDF file within the `<sensor>` tag.
       <device>/dev/video10</device> 
       <!-- Topic to subscribe to (optional, auto-detected if omitted but recommended) -->
       <topic>camera/image_raw</topic>
+      <pixel_format>yuyv</pixel_format>
     </plugin>
   </sensor>
 </gazebo>

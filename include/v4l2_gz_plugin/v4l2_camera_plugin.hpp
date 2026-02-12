@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace v4l2_gz_plugin
 {
@@ -31,10 +32,13 @@ public:
 private:
   void OnImage(const gz::msgs::Image &_msg);
   int InitV4L2();
+  void RgbToYuyv(const uint8_t * _rgb, int _width, int _height, uint8_t * _yuyv);
 
   gz::transport::Node gz_node_;
   std::string device_name_;
   std::string camera_topic_;
+  std::string pixel_format_{"rgb24"};  // "rgb24" or "yuyv"
+  std::vector<uint8_t> yuyv_buffer_;
   int width_ = 0;
   int height_ = 0;
   int video_fd_ = -1;
