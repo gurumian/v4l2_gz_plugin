@@ -85,7 +85,17 @@ void V4L2CameraPlugin::Configure(const gz::sim::Entity &_entity,
 void V4L2CameraPlugin::PostUpdate(const gz::sim::UpdateInfo &/*_info*/,
                                   const gz::sim::EntityComponentManager &/*_ecm*/)
 {
-  // No-op
+  // Write at most one frame per step (latest only) for low latency
+  if (!v4l2_initialized_ || video_fd_ < 0 || !has_latest_)
+    return;
+  has_latest_ = false;
+  if (pixel_format_ == "yuyv")
+  {
+    RgbToYuyv(latest_rgb_buffer_.data(), width_, height_, yuyv_buffer_.data());
+    write(video_fd_, yuyv_buffer_.data(), yuyv_buffer_.size());
+  }
+  else
+    write(video_fd_, latest_rgb_buffer_.data(), latest_rgb_buffer_.size());
 }
 
 int V4L2CameraPlugin::InitV4L2()
@@ -198,29 +208,26 @@ void V4L2CameraPlugin::RgbToYuyv(const uint8_t * _rgb, int _width, int _height, 
 
 void V4L2CameraPlugin::OnImage(const gz::msgs::Image &_msg)
 {
+  const size_t data_size = _msg.data().size();
+  const int w = _msg.width(), h = _msg.height();
+  const size_t expected = static_cast<size_t>(w * h * 3);
+  if (data_size != expected)
+    return;
+
   if (!v4l2_initialized_)
   {
-    width_ = _msg.width();
-    height_ = _msg.height();
-
-    if (InitV4L2() == 0)
-      v4l2_initialized_ = true;
-    else
+    width_ = w;
+    height_ = h;
+    if (InitV4L2() != 0)
       return;
+    v4l2_initialized_ = true;
   }
 
-  if (video_fd_ >= 0)
-  {
-    const char * data = _msg.data().c_str();
-    size_t data_size = _msg.data().size();
-    if (pixel_format_ == "yuyv" && data_size == static_cast<size_t>(width_ * height_ * 3))
-    {
-      RgbToYuyv(reinterpret_cast<const uint8_t *>(data), width_, height_, yuyv_buffer_.data());
-      write(video_fd_, yuyv_buffer_.data(), yuyv_buffer_.size());
-    }
-    else if (data_size == static_cast<size_t>(width_ * height_ * 3))
-      write(video_fd_, data, data_size);
-  }
+  // Always overwrite with latest frame only (drop queued old ones)
+  if (latest_rgb_buffer_.size() != expected)
+    latest_rgb_buffer_.resize(expected);
+  memcpy(latest_rgb_buffer_.data(), _msg.data().c_str(), expected);
+  has_latest_ = true;
 }
 
 } // namespace v4l2_gz_plugin

@@ -39,6 +39,8 @@ private:
   std::string camera_topic_;
   std::string pixel_format_{"rgb24"};  // "rgb24" or "yuyv"
   std::vector<uint8_t> yuyv_buffer_;
+  std::vector<uint8_t> latest_rgb_buffer_;  // latest frame only (drop older)
+  bool has_latest_ = false;
   int width_ = 0;
   int height_ = 0;
   int video_fd_ = -1;
